@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+    <script>
+        (function(){
+            emailjs.init("HiEeGAkB4ZtbzC9Bv"); // Initialize EmailJS with your User ID
+        })();
+
+        function sendEmail(predicted_class, certainty, solution) {
+            const templateParams = {
+                predicted_class: predicted_class,
+                certainty: certainty,
+                solution: solution
+            };
+
+            emailjs.send("service_lmbc1pl", "template_o3qygqk", templateParams)
+                .then(function(response) {
+                    console.log('SUCCESS!', response.status, response.text);
+                    alert('Email sent successfully!');
+                }, function(error) {
+                    console.log('FAILED...', error);
+                    alert('Failed to send email: ' + error.text);
+                });
+        }
+
+        // Expose the function to the global scope
+        window.sendEmail = sendEmail;
+    </script>
+    <title>Email Sender</title>
+</head>
+<body>
+</body>
+</html>

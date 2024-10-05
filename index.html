@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaf Disease Detection</title>
+    <link rel="stylesheet" href="static/styles.css">
+    <script src="https://cdn.emailjs.com/dist/email.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Leaf Disease Detection</h1>
+        <form id="upload-form">
+            <input type="file" id="image-upload" accept="image/*" required>
+            <button type="submit">Upload & Predict</button>
+        </form>
+        <div id="result"></div>
+    </div>
+
+    <script>
+        // Initialize EmailJS
+        (function() {
+            emailjs.init("HiEeGAkB4ZtbzC9Bv");
+        })();
+
+        document.getElementById('upload-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const fileInput = document.getElementById('image-upload');
+            const file = fileInput.files[0];
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('result');
+                resultDiv.innerHTML = `
+                    <h2>Prediction Result</h2>
+                    <p>Predicted Class: ${data.predicted_class}</p>
+                    <p>Certainty: ${data.certainty}</p>
+                    <p>Suggested Solution: ${data.solution}</p>
+                `;
+                sendEmail(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+        });
+
+        function sendEmail(data) {
+            const templateParams = {
+                predicted_class: data.predicted_class,
+                certainty: data.certainty,
+                solution: data.solution
+            };
+
+            emailjs.send('service_lmbc1pl', 'template_o3qygqk', templateParams)
+                .then(() => {
+                    alert('Email sent successfully!');
+                }, (error) => {
+                    alert('Failed to send email: ' + error.text);
+                });
+        }
+    </script>
+</body>
+</html>

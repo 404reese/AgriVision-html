@@ -1,15 +1,14 @@
 import streamlit as st
 import numpy as np
-import cv2  # type: ignore
-from tensorflow.keras.models import load_model  # type: ignore
-from tensorflow.keras.preprocessing.image import img_to_array  # type: ignore
-import smtplib
-import os
+import cv2
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing.image import img_to_array
+import requests as request
 
-# Load the model
+# Load the pre-trained model
 model = load_model('plant_disease_prediction_model.h5')
 
-# Class indices for predictions
+# Class indices mapping
 class_indices = {
     0: 'Apple___Apple_scab',
     1: 'Apple___Black_rot',
@@ -101,9 +100,32 @@ def predict_image_class(model, image, class_indices):
 
     preds = model.predict(img)
     predicted_class = np.argmax(preds, axis=1)[0]
-    return class_indices[predicted_class], preds[0][predicted_class]
+    return class_indices[predicted_class], preds[0][predicted_class] 
 
-# Create the Streamlit app
+def send_email(predicted_class_name, predicted_class_prob, solution):
+    USER_ID = "HiEeGAkB4ZtbzC9Bv"
+    SERVICE_ID = "service_lmbc1pl"
+    TEMPLATE_ID = "template_o3qygqk"
+
+    template_params = {
+        "predicted_class": predicted_class_name,
+        "certainty": f"{predicted_class_prob:.2f}%",
+        "solution": solution
+    }
+
+    payload = {
+        "service_id": SERVICE_ID,
+        "template_id": TEMPLATE_ID,
+        "user_id": USER_ID,
+        "template_params": template_params
+    }
+
+    response = request.post("https://api.emailjs.com/api/v1.0/email/send", json=payload)
+    if response.status_code == 200:
+        return True
+    else:
+        return False
+
 st.title("Leaf Disease Detection")
 
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
@@ -120,33 +142,15 @@ if uploaded_file is not None:
             predicted_class_name, predicted_class_prob = predict_image_class(model, image, class_indices)
             st.success(f"Predicted Class: {predicted_class_name}")
 
-            # Display the certainty
             st.info(f"Certainty: {predicted_class_prob:.2f}%")
 
             if predicted_class_name in treatment_solutions:
                 solution = treatment_solutions[predicted_class_name]
                 st.info(f"Suggested Solution: {solution}")
+
+                if send_email(predicted_class_name, predicted_class_prob, solution):
+                    st.success("Email sent successfully!")
+                else:
+                    st.error("Failed to send email.")
             else:
                 st.warning("No solution available for this disease.")
-
-            # Send email
-            FROM_EMAIL = "agrivision-kjsit@outlook.com"
-            TO_EMAIL = "riddhesh0809@gmail.com"
-            PASSWORD = "WpFrjSNKB4hT"  
-
-            MESSAGE = f"""Subject: Leaf Disease Detection Result
-
-The predicted class is {predicted_class_name} with a certainty of {predicted_class_prob:.2f}%. 
-The suggested solution is {solution}."""
-
-            try:
-                smtp = smtplib.SMTP("smtp-mail.outlook.com", 587)
-                smtp.ehlo()
-                smtp.starttls()
-                smtp.login(FROM_EMAIL, PASSWORD)
-                smtp.sendmail(FROM_EMAIL, TO_EMAIL, MESSAGE)
-                st.success("Email sent successfully!")
-            except Exception as e:
-                st.error(f"Failed to send email: {str(e)}")
-            finally:
-                smtp.quit()
