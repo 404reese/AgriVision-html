@@ -4,8 +4,10 @@ import cv2  # type: ignore
 from tensorflow.keras.models import load_model  # type: ignore
 from tensorflow.keras.preprocessing.image import img_to_array  # type: ignore
 
+# Load the model
 model = load_model('plant_disease_prediction_model.h5')
 
+    
 class_indices = {
     0: 'Apple___Apple_scab',
     1: 'Apple___Black_rot',
@@ -87,7 +89,8 @@ treatment_solutions = {
     'Tomato___healthy': "No action required; continue regular care."
 }
 
-def predict_image_class(model, image):
+
+def predict_image_class(model, image, class_indices):
     img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (224, 224))  
     img = img.astype("float32") / 255.0
@@ -98,6 +101,7 @@ def predict_image_class(model, image):
     predicted_class = np.argmax(preds, axis=1)[0]
     return class_indices[predicted_class]
 
+# Create the Streamlit app
 st.title("Leaf Disease Detection")
 
 uploaded_file = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
@@ -111,8 +115,21 @@ if uploaded_file is not None:
     else:
         st.image(image, channels="BGR", caption="Uploaded Image", use_column_width=True)
         if st.button("Predict"):
-            predicted_class_name = predict_image_class(model, image)
+            predicted_class_name = predict_image_class(model, image, class_indices)
             st.success(f"Predicted Class: {predicted_class_name}")
+
+            # Get the probability of the predicted class
+            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            img = cv2.resize(img, (224, 224))  
+            img = img.astype("float32") / 255.0
+            img = img_to_array(img)
+            img = np.expand_dims(img, axis=0)
+            preds = model.predict(img)
+            predicted_class = np.argmax(preds, axis=1)[0]
+            predicted_class_prob = preds[0][predicted_class]
+
+            # Display the certainty
+            st.info(f"Certainty: {predicted_class_prob:.2f}%")
 
             if predicted_class_name in treatment_solutions:
                 solution = treatment_solutions[predicted_class_name]
