@@ -3,11 +3,13 @@ import numpy as np
 import cv2  # type: ignore
 from tensorflow.keras.models import load_model  # type: ignore
 from tensorflow.keras.preprocessing.image import img_to_array  # type: ignore
+import smtplib
+import os
 
 # Load the model
 model = load_model('plant_disease_prediction_model.h5')
 
-    
+# Class indices for predictions
 class_indices = {
     0: 'Apple___Apple_scab',
     1: 'Apple___Black_rot',
@@ -49,6 +51,7 @@ class_indices = {
     37: 'Tomato___healthy'
 }
 
+# Treatment solutions
 treatment_solutions = {
     'Apple___Apple_scab': "Remove affected leaves and apply fungicides.",
     'Apple___Black_rot': "Prune affected areas and apply appropriate fungicides.",
@@ -89,7 +92,6 @@ treatment_solutions = {
     'Tomato___healthy': "No action required; continue regular care."
 }
 
-
 def predict_image_class(model, image, class_indices):
     img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (224, 224))  
@@ -99,7 +101,7 @@ def predict_image_class(model, image, class_indices):
 
     preds = model.predict(img)
     predicted_class = np.argmax(preds, axis=1)[0]
-    return class_indices[predicted_class]
+    return class_indices[predicted_class], preds[0][predicted_class]
 
 # Create the Streamlit app
 st.title("Leaf Disease Detection")
@@ -115,18 +117,8 @@ if uploaded_file is not None:
     else:
         st.image(image, channels="BGR", caption="Uploaded Image", use_column_width=True)
         if st.button("Predict"):
-            predicted_class_name = predict_image_class(model, image, class_indices)
+            predicted_class_name, predicted_class_prob = predict_image_class(model, image, class_indices)
             st.success(f"Predicted Class: {predicted_class_name}")
-
-            # Get the probability of the predicted class
-            img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            img = cv2.resize(img, (224, 224))  
-            img = img.astype("float32") / 255.0
-            img = img_to_array(img)
-            img = np.expand_dims(img, axis=0)
-            preds = model.predict(img)
-            predicted_class = np.argmax(preds, axis=1)[0]
-            predicted_class_prob = preds[0][predicted_class]
 
             # Display the certainty
             st.info(f"Certainty: {predicted_class_prob:.2f}%")
@@ -136,3 +128,25 @@ if uploaded_file is not None:
                 st.info(f"Suggested Solution: {solution}")
             else:
                 st.warning("No solution available for this disease.")
+
+            # Send email
+            FROM_EMAIL = "agrivision-kjsit@outlook.com"
+            TO_EMAIL = "riddhesh0809@gmail.com"
+            PASSWORD = "WpFrjSNKB4hT"  
+
+            MESSAGE = f"""Subject: Leaf Disease Detection Result
+
+The predicted class is {predicted_class_name} with a certainty of {predicted_class_prob:.2f}%. 
+The suggested solution is {solution}."""
+
+            try:
+                smtp = smtplib.SMTP("smtp-mail.outlook.com", 587)
+                smtp.ehlo()
+                smtp.starttls()
+                smtp.login(FROM_EMAIL, PASSWORD)
+                smtp.sendmail(FROM_EMAIL, TO_EMAIL, MESSAGE)
+                st.success("Email sent successfully!")
+            except Exception as e:
+                st.error(f"Failed to send email: {str(e)}")
+            finally:
+                smtp.quit()
